@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Scandrop Physics Sandbox - pendulum-lab</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- Controls Overlay Styles -->
+  <style>
+    /* ── Corner badge ─────────────────────────────── */
+    #controls-badge {
+      position: fixed;
+      bottom: 18px;
+      right: 18px;
+      z-index: 9999;
+      background: rgba(0,10,18,0.82);
+      border: 1px solid #00ffcc;
+      border-radius: 8px;
+      color: #00ffcc;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 6px 11px;
+      cursor: pointer;
+      user-select: none;
+      box-shadow: 0 0 10px rgba(0,255,204,0.25);
+      transition: background 0.15s, box-shadow 0.15s;
+    }
+    #controls-badge:hover {
+      background: rgba(0,255,204,0.15);
+      box-shadow: 0 0 18px rgba(0,255,204,0.5);
+    }
+
+    /* ── Overlay backdrop ─────────────────────────── */
+    #controls-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9998;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,4,12,0.72);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease;
+    }
+    #controls-overlay.visible {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    /* ── Panel card ───────────────────────────────── */
+    #controls-panel {
+      background: rgba(4,12,22,0.97);
+      border: 1px solid #00ffcc44;
+      border-radius: 14px;
+      width: min(520px, 92vw);
+      max-height: 88vh;
+      overflow-y: auto;
+      padding: 0;
+      box-shadow: 0 0 60px rgba(0,255,204,0.12), 0 8px 48px rgba(0,0,0,0.7);
+      transform: translateY(16px);
+      transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    #controls-overlay.visible #controls-panel {
+      transform: translateY(0);
+    }
+
+    /* ── Panel header ─────────────────────────────── */
+    .ctrl-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 22px 14px;
+      border-bottom: 1px solid #00ffcc22;
+    }
+    .ctrl-title {
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      color: #00ffcc;
+    }
+    .ctrl-close {
+      background: none;
+      border: 1px solid #00ffcc44;
+      border-radius: 6px;
+      color: #00ffcc;
+      font-size: 14px;
+      width: 28px; height: 28px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.12s;
+    }
+    .ctrl-close:hover { background: rgba(0,255,204,0.12); }
+
+    /* ── Section ──────────────────────────────────── */
+    .ctrl-section {
+      padding: 14px 22px 4px;
+    }
+    .ctrl-section-title {
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      color: #446688;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    /* ── Row ──────────────────────────────────────── */
+    .ctrl-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 6px 0;
+      border-bottom: 1px solid #0d1f2a;
+    }
+    .ctrl-row:last-child { border-bottom: none; }
+    .ctrl-keys {
+      display: flex;
+      gap: 5px;
+      flex-shrink: 0;
+      min-width: 130px;
+      justify-content: flex-end;
+    }
+    .ctrl-key {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #0a1a26;
+      border: 1px solid #00ffcc55;
+      border-bottom: 2px solid #00ffcc88;
+      border-radius: 5px;
+      color: #c8e8f0;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 7px;
+      min-width: 22px;
+      white-space: nowrap;
+      box-shadow: 0 2px 0 #00ffcc18;
+    }
+    .ctrl-plus {
+      color: #446688;
+      font-size: 11px;
+      align-self: center;
+    }
+    .ctrl-desc {
+      color: #8ab0c0;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    /* ── Footer ───────────────────────────────────── */
+    .ctrl-footer {
+      padding: 12px 22px 18px;
+      text-align: center;
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      color: #223344;
+      border-top: 1px solid #0d1f2a;
+    }
+  </style>
+  
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/MozillaReality/ammo.js@8bbc0ea/builds/ammo.wasm.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-physics-system@v4.2.2/dist/aframe-physics-system.min.js"></script>
+  <script src="components/three-material-patch.js"></script>
+  <script src="components/fullscreen-vr-button.js"></script>
+  <script src="i18n/i18n.js"></script>
+  <script src="components/i18n-text.js"></script>
+
+  <!-- SPA Architecture -->
+  <!-- Governance & Scene Logic -->
+  <!-- Educational Scenario Engine -->
+  <script src="components/tool-manager.js"></script>
+  <script src="components/object-physics-adapter.js"></script>
+  <script src="components/model-library.js"></script>
+  <script src="components/model-spawner.js"></script>
+  <script src="components/model-selector.js"></script>
+  <script src="components/object-loader.js"></script>
+  <script src="components/spawn-manager.js"></script>
+  <script src="components/reset-zone.js"></script>
+  <script src="components/scene-audio.js"></script>
+  <script src="components/player-physics.js"></script>
+
+  <!-- Lab-specific components (pre-loaded so SPA prefabs can use them immediately) -->
+  <script src="components/pendulum-lab-components.js"></script>
+  <script src="main.js"></script>
+</head>
+<body>
+  <a-scene physics="driver: ammo; debug: false; gravity: -9.8">
+    <a-assets timeout="15000"></a-assets>
+
+    <!-- SPA Router Container -->
+    <!-- PENDULUM LAB PREFAB (Dynamically loaded by spa-router) -->
+<a-entity id="pendulum-lab-scene" pendulum-lab-controller
+          data-boundary="minX: -9.5; maxX: 9.5; minZ: -9.5; maxZ: 9.5">
+
+  <!-- Player spawn: faces the pendulum and control console -->
+  <a-entity id="scene-spawn-point" position="0 1.2 2" rotation="0 0 0" visible="false"></a-entity>
+
+  <a-entity id="pend" pendulum="length:3;angle:45;damping:0;mass:5"></a-entity>
+
+  <!-- Environment: Clock Tower Observatory -->
+  <a-box position="0 -0.25 0" width="20" height="0.5" depth="20" color="#1a1520" ammo-body="type: static" ammo-shape="type: box"></a-box>
+  <a-box position="0 4 -10" width="20" height="8" depth="0.1" color="#2d2438" ammo-body="type: static" ammo-shape="type: box"></a-box>
+  <a-box position="0 4 10"  width="20" height="8" depth="0.1" color="#2d2438" ammo-body="type: static" ammo-shape="type: box"></a-box>
+  <a-box position="-10 4 0" width="0.1" height="8" depth="20" color="#2d2438" ammo-body="type: static" ammo-shape="type: box"></a-box>
+  <a-box position="10 4 0"  width="0.1" height="8" depth="20" color="#2d2438" ammo-body="type: static" ammo-shape="type: box"></a-box>
+  <a-box position="0 7.9 -9.9" width="18" height="0.15" depth="0.15" color="#FFD54F" material="emissive:#FFD54F;emissiveIntensity:0.8"></a-box>
+  <a-sky color="#110e1a"></a-sky>
+  <a-plane position="0 7.95 -4" rotation="-90 0 0" width="3" height="3" color="#FFE082" material="emissive:#FFE082;emissiveIntensity:0.6;opacity:0.4;transparent:true"></a-plane>
+
+  <!-- Gear decorations -->
+  <a-torus position="-5 5 -9.9" rotation="0 0 0" radius="0.8" radius-tubular="0.06" color="#8D6E63" material="emissive:#8D6E63;emissiveIntensity:0.2" animation="property:rotation;to:0 0 360;dur:20000;loop:true;easing:linear"></a-torus>
+  <a-torus position="-3.8 4.2 -9.9" rotation="0 0 15" radius="0.5" radius-tubular="0.04" color="#A1887F" material="emissive:#A1887F;emissiveIntensity:0.15" animation="property:rotation;from:0 0 15;to:0 0 -345;dur:15000;loop:true;easing:linear"></a-torus>
+
+  <!-- Pivot structure -->
+  <a-box position="0 6.2 -4" width="2" height="0.2" depth="0.2" color="#555"></a-box>
+  <a-sphere position="0 6 -4" radius="0.08" color="#FF5722" material="emissive:#FF5722;emissiveIntensity:0.4"></a-sphere>
+
+  <!-- ════════ Energy Panel ════════ -->
+  <a-entity position="3.5 4.2 -4" rotation="0 -20 0">
+    <a-plane width="2.6" height="2.6" color="#0a0a0a" position="0 0 -0.02" material="opacity:0.9;transparent:true"></a-plane>
+    <a-entity position="0 1.05 0" text="align:center; width:3; color:#00ffcc" i18n-text="key: pendulumLab.energy"></a-entity>
+    <a-entity position="-1.05 0.35 0" text="align:left; width:1.8; color:#2196F3" i18n-text="key: pendulumLab.ke"></a-entity>
+    <a-entity id="ke-bar" position="-0.6 0.35 0" geometry="primitive:box;width:0.01;height:0.22;depth:0.05" material="color:#2196F3;emissive:#2196F3;emissiveIntensity:0.5"></a-entity>
+    <a-entity position="-1.05 0 0" text="align:left; width:1.8; color:#4CAF50" i18n-text="key: pendulumLab.pe"></a-entity>
+    <a-entity id="pe-bar" position="-0.6 0 0" geometry="primitive:box;width:0.01;height:0.22;depth:0.05" material="color:#4CAF50;emissive:#4CAF50;emissiveIntensity:0.5"></a-entity>
+    <a-entity position="-1.05 -0.35 0" text="align:left; width:1.8; color:#eee" i18n-text="key: pendulumLab.total"></a-entity>
+    <a-entity id="total-bar" position="-0.6 -0.35 0" geometry="primitive:box;width:0.01;height:0.22;depth:0.05" material="color:#eee;emissive:#eee;emissiveIntensity:0.3"></a-entity>
+    <a-entity id="period-text" position="0 -0.8 0" text="value:Swing: --; align:center; width:2.5; color:#FFEB3B"></a-entity>
+    <a-entity id="mass-text"   position="0 -1.1 0" text="value:5 kg; align:center; width:2; color:#26C6DA"></a-entity>
+  </a-entity>
+
+  <!-- ════════ Lighting ════════ -->
+  <a-entity light="type:ambient;color:#2a2030"></a-entity>
+  <a-entity light="type:point;color:#FFE082;intensity:0.8" position="0 7 -4"></a-entity>
+  <a-entity light="type:directional;color:#FFD54F;intensity:0.3" position="-1 4 2"></a-entity>
+  <a-entity light="type:point;color:#FFE082;intensity:0.3" position="3.5 5 -4"></a-entity>
+
+  <!-- ════════ UI Console ════════ -->
+  <a-entity position="0 1.2 -1" rotation="-20 0 0">
+    <a-plane width="2.8" height="2.4" color="#0a0a0a" position="0 0 -0.01"></a-plane>
+    <a-entity position="0 1.08 0" text="align:center;width:2.5;color:#00ffcc" i18n-text="key: labs.pendulum"></a-entity>
+    <a-entity position="0 0.96 0" text="align:center;width:2;color:#888"   i18n-text="key: pendulumLab.question"></a-entity>
+
+    <!-- Model selection -->
+    <a-entity position="-0.8 0.74 0" text="align:left;width:1.2;color:#aaa" i18n-text="key: pendulumLab.modelLabel"></a-entity>
+    <a-entity id="selection-text" position="0.18 0.74 0.02" selected-model-label="prefix: Active; width: 1.25; color: white"></a-entity>
+    <a-entity id="btn-model-device" class="clickable" position="0.15 0.56 0.02"
+              geometry="primitive:box;width:0.9;height:0.14;depth:0.04"
+              material="color:#00695c"
+              text="align:center;zOffset:0.021;width:2.8;color:white" i18n-text="key: labs.selectModel"></a-entity>
+
+    <!-- Angle select -->
+    <a-entity position="-0.8 0.36 0" text="align:left;width:1.2;color:#aaa" i18n-text="key: pendulumLab.angleLabel"></a-entity>
+    <a-entity id="angle-select" position="0.1 0.36 0.02"></a-entity>
+
+    <!-- Length select -->
+    <a-entity position="-0.8 0.18 0" text="align:left;width:1.2;color:#aaa" i18n-text="key: pendulumLab.lengthLabel"></a-entity>
+    <a-entity id="len-select" position="0.1 0.18 0.02"></a-entity>
+
+    <!-- Damping select -->
+    <a-entity position="-0.8 0.0 0" text="align:left;width:1.2;color:#aaa" i18n-text="key: pendulumLab.dampingLabel"></a-entity>
+    <a-entity id="damp-select" position="0.1 0.0 0.02"></a-entity>
+
+    <!-- Mass select -->
+    <a-entity position="-0.8 -0.18 0" text="align:left;width:1.2;color:#aaa" i18n-text="key: pendulumLab.massLabel"></a-entity>
+    <a-entity id="mass-select" position="0.1 -0.18 0.02"></a-entity>
+
+    <!-- Action buttons -->
+    <a-entity id="btn-attach"  class="clickable" position="-0.6 -0.44 0.02" geometry="primitive:box;width:0.55;height:0.16;depth:0.04" material="color:#4CAF50" text="align:center;zOffset:0.021;width:2.5;color:white" i18n-text="key: pendulumLab.attach"></a-entity>
+    <a-entity id="btn-release" class="clickable" position="0 -0.44 0.02"    geometry="primitive:box;width:0.55;height:0.16;depth:0.04" material="color:#FF9800" text="align:center;zOffset:0.021;width:2.5;color:white" i18n-text="key: pendulumLab.release"></a-entity>
+    <a-entity id="btn-reset"   class="clickable" position="0.6 -0.44 0.02"  geometry="primitive:box;width:0.55;height:0.16;depth:0.04" material="color:#f44336" text="align:center;zOffset:0.021;width:2.5;color:white" i18n-text="key: labs.resetScene"></a-entity>
+
+    <!-- Nav -->
+    <a-entity class="clickable" position="0 -0.72 0.02"
+              geometry="primitive:box;width:0.9;height:0.14;depth:0.04"
+              material="color:#333"
+              text="align:center;zOffset:0.021;width:3;color:#00ffcc" i18n-text="key: common.backToHub"
+              spa-nav-link="to: hub"></a-entity>
+  </a-entity>
+
+</a-entity>
+
+
+    <!-- Global Camera & Controls -->
+    <a-entity id="rig" position="0 0.5 0" movement-controls="speed: 0.6"
+              player-physics="boundaryMinX: -200; boundaryMaxX: 200; boundaryMinZ: -200; boundaryMaxZ: 200">
+      <a-camera id="camera" position="0 1.1 0" look-controls="pointerLockEnabled: false; magicWindowTrackingEnabled: false" wasd-controls-enabled="false">
+        <!-- Mouse cursor MUST be inside a-camera for rayOrigin:mouse to unproject correctly -->
+        <a-entity cursor="rayOrigin: mouse; fuse: false"
+                  raycaster="objects: .clickable, .grabbable; far: 20"></a-entity>
+        <a-entity id="model-device" position="0 0 -1.2" rotation="0 0 0"
+                  model-selector-panel="title: MODEL SELECTOR; pageSize: 6"></a-entity>
+      </a-camera>
+      <!-- VR laser controllers stay in rig (world-space casting) -->
+      <a-entity laser-controls="hand: left"  cursor="rayOrigin: entity; fuse: false" raycaster="objects: .clickable, .grabbable; far: 8"></a-entity>
+      <a-entity laser-controls="hand: right" cursor="rayOrigin: entity; fuse: false" raycaster="objects: .clickable, .grabbable; far: 8"></a-entity>
+    </a-entity>
+
+  </a-scene>
+
+  <!-- ── Controls Corner Badge ─────────────────────────────────── -->
+  <div id="controls-badge" title="Show Controls (H)">[ H ] CONTROLS</div>
+
+  <!-- ── Controls Overlay ──────────────────────────────────────── -->
+  <div id="controls-overlay" role="dialog" aria-modal="true" aria-label="Controls Reference">
+    <div id="controls-panel">
+
+      <div class="ctrl-header">
+        <span class="ctrl-title">◈ CONTROLS REFERENCE</span>
+        <button class="ctrl-close" id="controls-close" title="Close (H or Esc)">✕</button>
+      </div>
+
+      <!-- Movement -->
+      <div class="ctrl-section">
+        <div class="ctrl-section-title">Movement</div>
+        <div class="ctrl-row">
+          <div class="ctrl-keys">
+            <span class="ctrl-key">W</span><span class="ctrl-key">A</span>
+            <span class="ctrl-key">S</span><span class="ctrl-key">D</span>
+          </div>
+          <span class="ctrl-desc">Walk forward / left / back / right</span>
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-keys"><span class="ctrl-key">Space</span></div>
+          <span class="ctrl-desc">Jump (gravity mode)</span>
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-keys"><span class="ctrl-key">E</span></div>
+          <span class="ctrl-desc">Ascend (fly mode)</span>
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-keys"><span class="ctrl-key">Q</span></div>
+          <span class="ctrl-desc">Descend (fly mode)</span>
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-keys"><span class="ctrl-key">G</span></div>
+          <span class="ctrl-desc">Toggle fly mode on / off</span>
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-keys"><span class="ctrl-key">Mouse</span></div>
+          <span class="ctrl-desc">Look around (drag / lock)</span>
+        </div>
+      </div>
+
+      <!-- Object Interaction -->
+      <div class="ctrl-section">
+        <div class="ctrl-section-title">Object Interaction</div>
+        <div class="ctrl-row">
+          <div class="ctrl-keys"><span class="ctrl-key">Left Click</span></div>
+          <span class="ctrl-desc">Grab &amp; drag highlighted object</span>
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-keys"><span class="ctrl-key">Release</span></div>
+          <span class="ctrl-desc">Throw object with momentum</span>
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-keys"><span class="ctrl-key">Right Click</span></div>
+          <span class="ctrl-desc">Force push object away</span>
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-keys"><span class="ctrl-key">Scroll ↕</span></div>
+          <span class="ctrl-desc">Adjust grab distance while holding</span>
+        </div>
+      </div>
+
+      <!-- Model Selector -->
+      <div class="ctrl-section">
+        <div class="ctrl-section-title">Model Selector</div>
+        <div class="ctrl-row">
+          <div class="ctrl-keys"><span class="ctrl-key">Tab</span></div>
+          <span class="ctrl-desc">Toggle model selector panel</span>
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-keys"><span class="ctrl-key">Esc</span></div>
+          <span class="ctrl-desc">Close model selector</span>
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-keys"><span class="ctrl-key">Y Button</span></div>
+          <span class="ctrl-desc">Toggle model selector (VR left controller)</span>
+        </div>
+      </div>
+
+      <!-- Spawn Console -->
+      <div class="ctrl-section">
+        <div class="ctrl-section-title">Spawn Console</div>
+        <div class="ctrl-row">
+          <div class="ctrl-keys"><span class="ctrl-key">Click &amp; SPAWN</span></div>
+          <span class="ctrl-desc">Drop selected model into the drop zone</span>
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-keys"><span class="ctrl-key">Click &amp; RESET</span></div>
+          <span class="ctrl-desc">Remove all spawned objects</span>
+        </div>
+      </div>
+
+      <!-- UI -->
+      <div class="ctrl-section">
+        <div class="ctrl-section-title">Interface</div>
+        <div class="ctrl-row">
+          <div class="ctrl-keys"><span class="ctrl-key">H</span></div>
+          <span class="ctrl-desc">Toggle this controls reference</span>
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-keys"><span class="ctrl-key">F</span></div>
+          <span class="ctrl-desc">Enter fullscreen</span>
+        </div>
+      </div>
+
+      <div class="ctrl-footer">SCANDROP RESEARCH INSTITUTE — PHYSICS SANDBOX</div>
+    </div>
+  </div>
+
+  <!-- ── Toggle Logic ──────────────────────────────────────────── -->
+  <script>
+    (function () {
+      const overlay = document.getElementById('controls-overlay');
+      const badge   = document.getElementById('controls-badge');
+      const closeBtn = document.getElementById('controls-close');
+
+      function show() { overlay.classList.add('visible'); }
+      function hide() { overlay.classList.remove('visible'); }
+      function toggle() { overlay.classList.toggle('visible'); }
+
+      badge.addEventListener('click', toggle);
+      closeBtn.addEventListener('click', hide);
+
+      // Click outside panel to close
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) hide();
+      });
+
+      // Keyboard shortcuts
+      window.addEventListener('keydown', function (e) {
+        if (e.key === 'h' || e.key === 'H') {
+          // Don't trigger if typing in an input
+          if (document.activeElement && (['INPUT','TEXTAREA'].includes(document.activeElement.tagName))) return;
+          toggle();
+        }
+        if (e.key === 'Escape' && overlay.classList.contains('visible')) {
+          hide();
+        }
+      });
+    })();
+  </script>
+
+</body>
+</html>
